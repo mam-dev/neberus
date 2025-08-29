@@ -25,7 +25,7 @@
 
 <main>
     <OpenApi/>
-    <div class="credits">Proudly presented by <a href="https://github.com/1and1/neberus">Neberus</a></div>
+    <div class="credits">Proudly presented by <a href="https://github.com/mam-dev/neberus">Neberus</a></div>
 </main>
 
 <style>
