@@ -442,7 +442,9 @@ public class OpenApiV3JsonPrinter extends DocPrinter {
 
     private Operation getOperation(RestClassData restClassData, List<RestUsecaseData> restUsecases, RestMethodData method, List<RestClassData> allRestClasses,
             Components components) {
+
         Operation operation = new Operation();
+        var idx = method.containingClass.methods.indexOf(method);
 
         operation.operationId(getOperationId(method))
                 .summary(method.methodData.label)
@@ -451,7 +453,8 @@ public class OpenApiV3JsonPrinter extends DocPrinter {
                 .deprecated(method.methodData.deprecated)
                 .addTagsItem("resource:" + restClassData.className)
                 .requestBody(getRequestBody(method.requestData, method.methodData, components))
-                .responses(getApiResponses(restClassData, method.responseData, method.methodData, components));
+                .responses(getApiResponses(restClassData, method.responseData, method.methodData, components))
+                .addExtension("x-order", idx);
 
 
         if (method.methodData.deprecated) {

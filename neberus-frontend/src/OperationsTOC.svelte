@@ -37,6 +37,24 @@
         filter('');
     };
 
+    function getOrderedOperations(paths) {
+        let operations = [];
+
+        Object.keys(paths).forEach(path => {
+            Object.keys(paths[path]).forEach(method => {
+                operations.push({
+                    path: path,
+                    method: method,
+                    operation: paths[path][method],
+                })
+            });
+        });
+
+        operations.sort((a, b) => a.operation.extensions['x-order'] - b.operation.extensions['x-order']);
+
+        return operations;
+    }
+
 </script>
 
 
@@ -60,14 +78,12 @@
                 {resource}
             {/if}
         </span>
-        {#each Object.keys(paths) as path}
-            {#each Object.keys(paths[path]) as method}
-                <span class="list-group-item list-group-item-action list-group-item-indent {paths[path][method].deprecated?'operation-toc-deprecated':''}"
-                   data-operation="{paths[path][method].operationId}"
-                   on:click={selectOperation}>
-                    {method.toUpperCase()} - {paths[path][method].summary}
-                </span>
-            {/each}
+        {#each getOrderedOperations(paths) as operation}
+            <span class="list-group-item list-group-item-action list-group-item-indent {operation.operation.deprecated?'operation-toc-deprecated':''}"
+               data-operation="{operation.operation.operationId}"
+               on:click={selectOperation}>
+                {operation.method.toUpperCase()} - {operation.operation.summary}
+            </span>
         {/each}
 
     </div>

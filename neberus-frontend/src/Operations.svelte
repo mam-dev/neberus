@@ -34,16 +34,32 @@
         popoverElems = [];
     })
 
+    function getOrderedOperations(paths) {
+        let operations = [];
+
+        Object.keys(paths).forEach(path => {
+            Object.keys(paths[path]).forEach(method => {
+                operations.push({
+                    path: path,
+                    method: method,
+                    operation: paths[path][method],
+                })
+            });
+        });
+
+        operations.sort((a, b) => a.operation.extensions['x-order'] - b.operation.extensions['x-order']);
+
+        return operations;
+    }
+
 </script>
 
 <PathOverview paths={paths}/>
 
 <div data-spy="scroll" data-bs-target="#nav-operations" data-offset="0" class="scrollspy-example">
     {#if paths}
-        {#each Object.keys(paths) as path}
-            {#each Object.keys(paths[path]) as method}
-                <Operation path={path} method={method} operation={paths[path][method]} openApi={openApi}/>
-            {/each}
+        {#each getOrderedOperations(paths) as operation}
+            <Operation path={operation.path} method={operation.method} operation={operation.operation} openApi={openApi}/>
         {/each}
     {/if}
 </div>
