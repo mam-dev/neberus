@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [4.5.0] - 2025-08-29
+
+### Changed
+
+- add annotations to document complex access control & security schemes
+
+### Fixed
+
+- list operations in order of definition
+
+
 ## [4.4.0] - 2025-03-28
 
 ### Changed
