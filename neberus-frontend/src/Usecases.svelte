@@ -16,16 +16,12 @@
         return usecaseList.split(',').includes(usecaseId);
     }
 
-    const initCollapse = el => {
-        initCollapseToggle(el);
-    }
-
     afterUpdate(async() => {
         if (window) {
             let queryParams = queryString.parse(location.search);
             if (queryParams.usecases) {
                 scrollToHeading('usecases-container');
-            } else {
+            } else if (!queryParams) {
                 scrollToTop();
             }
         }

@@ -2,7 +2,6 @@
     import BodyParameters from "./BodyParameters.svelte";
     import Curl from "./Curl.svelte";
     import AllowedValue from "./AllowedValue.svelte";
-    import OperationSecurity from "./OperationSecurity.svelte";
 
     export let operation;
     export let method;
@@ -19,7 +18,6 @@
         <h5 class="card-header bg-secondary">Request</h5>
         <div class="card-body">
 
-            <OperationSecurity operation={operation} openApi={openApi}/>
             <Curl operation={operation} openApi={openApi} method={method} path={path}/>
 
             {#if operation.parameters && operation.parameters.length > 0}

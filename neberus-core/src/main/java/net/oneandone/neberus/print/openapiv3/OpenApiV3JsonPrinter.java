@@ -21,13 +21,18 @@ import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme.In;
 import io.swagger.v3.oas.models.servers.Server;
 import net.oneandone.neberus.NeberusModule;
 import net.oneandone.neberus.Options;
 import net.oneandone.neberus.model.CookieSameSite;
+import net.oneandone.neberus.model.SecurityIn;
+import net.oneandone.neberus.model.SecurityScheme;
 import net.oneandone.neberus.parse.RestClassData;
 import net.oneandone.neberus.parse.RestMethodData;
 import net.oneandone.neberus.parse.RestUsecaseData;
+import net.oneandone.neberus.parse.SecurityData;
 import net.oneandone.neberus.print.AsciiDocPrinter;
 import net.oneandone.neberus.print.DocPrinter;
 import net.oneandone.neberus.print.MarkdownPrinter;
@@ -82,10 +87,14 @@ public class OpenApiV3JsonPrinter extends DocPrinter {
     }
 
     @Override
-    public void printIndexFile(List<RestClassData> restClasses, List<RestUsecaseData> restUsecases, String packageDoc) {
+    public void printIndexFile(List<RestClassData> restClasses, List<RestUsecaseData> restUsecases,
+            SecurityData securityData, String packageDoc) {
+
         OpenAPI openAPI = new OpenAPI();
 
         Components components = new Components();
+
+        addSecuritySchemes(securityData, components);
 
         openAPI.info(getInfo(packageDoc))
                 .paths(getPaths(restClasses, restUsecases, components))
@@ -105,6 +114,137 @@ public class OpenApiV3JsonPrinter extends DocPrinter {
             saveToFile(jsonVar, options.outputDirectory + options.docBasePath, "openApi.js");
         } catch (JsonProcessingException e) {
             System.out.println(e);
+        }
+    }
+
+    private void addSecuritySchemes(SecurityData securityData, Components components) {
+        if (securityData.securitySchemes != null) {
+
+            if (securityData.securitySchemes.description != null) {
+                components.addExtension("x-security-schemes-description", expand(securityData.securitySchemes.description));
+            }
+
+            // basic
+            if (securityData.securitySchemes.basic != null) {
+                io.swagger.v3.oas.models.security.SecurityScheme securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme();
+                securityScheme.type(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP);
+                securityScheme.scheme("Basic");
+                securityScheme.in(In.HEADER);
+                securityScheme.name("Authorization");
+                securityScheme.description(expand(securityData.securitySchemes.basic.description()));
+                if (securityData.securitySchemes.basic.title() != null) {
+                    securityScheme.addExtension("x-title", expand(securityData.securitySchemes.basic.title()));
+                }
+                components.addSecuritySchemes(SecurityScheme.BASIC.typeName, securityScheme);
+            }
+
+            // bearer
+            if (securityData.securitySchemes.bearer != null) {
+                io.swagger.v3.oas.models.security.SecurityScheme securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme();
+                securityScheme.type(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP);
+                securityScheme.scheme("Bearer");
+                securityScheme.in(In.HEADER);
+                securityScheme.name("Authorization");
+                securityScheme.description(expand(securityData.securitySchemes.bearer.description()));
+                if (securityData.securitySchemes.bearer.title() != null) {
+                    securityScheme.addExtension("x-title", expand(securityData.securitySchemes.bearer.title()));
+                }
+                components.addSecuritySchemes(SecurityScheme.BEARER.typeName, securityScheme);
+            }
+
+            // apiKey
+            if (securityData.securitySchemes.apiKey != null) {
+                io.swagger.v3.oas.models.security.SecurityScheme securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme();
+                securityScheme.type(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY);
+                securityScheme.description(expand(securityData.securitySchemes.apiKey.description()));
+                securityScheme.in(In.valueOf(securityData.securitySchemes.apiKey.in().name()));
+                securityScheme.name(securityData.securitySchemes.apiKey.name());
+                if (securityData.securitySchemes.apiKey.title() != null) {
+                    securityScheme.addExtension("x-title", expand(securityData.securitySchemes.apiKey.title()));
+                }
+                components.addSecuritySchemes(SecurityScheme.API_KEY.typeName, securityScheme);
+            }
+
+            // oAuth2
+            if (securityData.securitySchemes.oAuth2 != null) {
+                io.swagger.v3.oas.models.security.SecurityScheme securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme();
+                securityScheme.type(io.swagger.v3.oas.models.security.SecurityScheme.Type.OAUTH2);
+                securityScheme.description(expand(securityData.securitySchemes.oAuth2.description()));
+                if (securityData.securitySchemes.oAuth2.title() != null) {
+                    securityScheme.addExtension("x-title", expand(securityData.securitySchemes.oAuth2.title()));
+                }
+                components.addSecuritySchemes(SecurityScheme.OAUTH2.typeName, securityScheme);
+            }
+
+            // openId
+            if (securityData.securitySchemes.openId != null) {
+                io.swagger.v3.oas.models.security.SecurityScheme securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme();
+                securityScheme.type(io.swagger.v3.oas.models.security.SecurityScheme.Type.OPENIDCONNECT);
+                securityScheme.openIdConnectUrl(securityData.securitySchemes.openId.openIdConnectUrl());
+                securityScheme.description(expand(securityData.securitySchemes.openId.description()));
+                if (securityData.securitySchemes.openId.title() != null) {
+                    securityScheme.addExtension("x-title", expand(securityData.securitySchemes.openId.title()));
+                }
+                components.addSecuritySchemes(SecurityScheme.OPEN_ID.typeName, securityScheme);
+            }
+
+            // mutualTLS
+            if (securityData.securitySchemes.mutualTLS != null) {
+                io.swagger.v3.oas.models.security.SecurityScheme securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme();
+                securityScheme.type(io.swagger.v3.oas.models.security.SecurityScheme.Type.MUTUALTLS);
+                securityScheme.description(expand(securityData.securitySchemes.mutualTLS.description()));
+                if (securityData.securitySchemes.mutualTLS.title() != null) {
+                    securityScheme.addExtension("x-title", expand(securityData.securitySchemes.mutualTLS.title()));
+                }
+                components.addSecuritySchemes(SecurityScheme.MUTUAL_TLS.typeName, securityScheme);
+            }
+
+            // custom
+            if (securityData.securitySchemes.custom != null) {
+                securityData.securitySchemes.custom.forEach(customEntry -> {
+                    io.swagger.v3.oas.models.security.SecurityScheme securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme();
+                    securityScheme.type(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP);
+                    securityScheme.description(expand(customEntry.description()));
+                    if (customEntry.title() != null) {
+                        securityScheme.addExtension("x-title", expand(customEntry.title()));
+                    }
+                    if (customEntry.in() != SecurityIn.UNDEFINED) {
+                        securityScheme.in(In.valueOf(customEntry.in().name()));
+                    }
+                    securityScheme.name(customEntry.name());
+                    securityScheme.scheme(customEntry.scheme());
+                    securityScheme.addExtension("x-custom-type-attributes", customEntry.attributes());
+                    components.addSecuritySchemes(customEntry.type(), securityScheme);
+                });
+            }
+
+            if (securityData.securitySchemes.roles != null) {
+
+                io.swagger.v3.oas.models.security.SecurityScheme securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme();
+                securityScheme.description(expand(securityData.securitySchemes.roles.description()));
+                if (securityData.securitySchemes.roles.title() != null) {
+                    securityScheme.addExtension("x-title", expand(securityData.securitySchemes.roles.title()));
+                }
+
+                if (securityData.securitySchemes.roles.roles() != null) {
+                    var roles = securityData.securitySchemes.roles.roles().stream()
+                            .map(role -> {
+                                var roleMap = new HashMap<String, String>();
+                                roleMap.put("name", role.name());
+
+                                if (role.description() != null) {
+                                    roleMap.put("description", expand(role.description()));
+                                }
+
+                                return roleMap;
+                            }).toList();
+
+                    securityScheme.addExtension("x-defined-roles", roles);
+                }
+
+                components.addSecuritySchemes(SecurityScheme.ROLES.typeName, securityScheme);
+            }
+
         }
     }
 
@@ -345,9 +485,36 @@ public class OpenApiV3JsonPrinter extends DocPrinter {
             operation.addExtension("x-related-usecases", usecaseIds);
         }
 
-        if (!method.methodData.allowedRoles.isEmpty()) {
-            List<String> sortedRoles = new ArrayList<>(method.methodData.allowedRoles.stream().sorted().toList());
-            operation.addExtension("x-allowed-roles", sortedRoles);
+        var securityData = method.accessData;
+
+        if (securityData != null) {
+            if (securityData.options() != null) {
+                securityData.options().forEach(set -> {
+
+                    SecurityRequirement securityItem = new SecurityRequirement();
+                    set.entries().forEach(item -> {
+                        if (item.values() != null) {
+                            securityItem.addList(item.type(), item.values());
+                        } else {
+                            securityItem.addList(item.type());
+                        }
+                    });
+
+                    if (set.title() != null) {
+                        securityItem.addList("x-title", expand(set.title()));
+                    }
+
+                    if (set.description() != null) {
+                        securityItem.addList("x-description", expand(set.description()));
+                    }
+
+                    if (set.deprecated()) {
+                        securityItem.addList("x-deprecated", "true");
+                    }
+                    operation.addSecurityItem(securityItem);
+                });
+            }
+
         }
 
         return operation;

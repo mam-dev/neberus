@@ -11,6 +11,8 @@
     import Usecases from "./Usecases.svelte";
     import UsecaseTOC from "./UsecaseTOC.svelte";
     import ServiceInfoTOC from "./ServiceInfoTOC.svelte";
+    import ServiceSecurity from "./ServiceSecurity.svelte";
+    import ServiceSecurityToc from "./ServiceSecurityTOC.svelte";
 
     $: queryParams = queryString.parse(location.search);
 
@@ -95,6 +97,7 @@
         {#if !activeResource}
             <ServiceInfoTOC openApi={openApi}/>
             <UsecaseTOC openApi={openApi}/>
+            <ServiceSecurityToc openApi={openApi}/>
         {/if}
     </div>
     <div class="serviceContainer">
@@ -104,6 +107,7 @@
         {:else}
             <ServiceInfo openApi={openApi}/>
             <Usecases openApi={openApi}/>
+            <ServiceSecurity openApi={openApi}/>
         {/if}
     </div>
 </div>

@@ -37,6 +37,31 @@
         initTooltipBox(el);
     }
 
+    function getAccessControlInfo(method) {
+        let accessControl = {};
+
+        if (method.security) {
+            accessControl.active = true;
+
+            let roles = [];
+            Object.keys(method.security).forEach(accessOptionKey => {
+                let accessOption = method.security[accessOptionKey];
+
+                if (accessOption['Roles']) {
+                    accessOption['Roles'].forEach(accessOptionValue => {
+                        if (!roles.includes(accessOptionValue)) {
+                            roles.push(accessOptionValue);
+                        }
+                    })
+                }
+            })
+
+            accessControl.roles = roles.toSorted();
+        }
+
+        return accessControl;
+    }
+
 </script>
 
 {#if paths}
@@ -52,10 +77,37 @@
                             <div>
                                 <span location="" href="">
                                     <span class="path-toc-method">{padRight(method.toUpperCase(), padTo)} -</span>
-                                    <span data-bs-container="body" data-bs-toggle="tooltip" use:initTooltip data-bs-placement="left" title=""
+                                    <span data-bs-container="body" data-bs-toggle="tooltip" use:initTooltip
+                                          data-bs-placement="left" title=""
                                           data-bs-original-title="{paths[path][method].summary}"
                                           class="path-toc-path">{@html path.replaceAll("/", "/<span class='word-wrap'></span>")}</span>
                                 </span>
+
+                                {#each [getAccessControlInfo(paths[path][method])] as accessControl}
+                                    {#if accessControl.active}
+                                        <div class="path-toc-roles">
+                                    <span class="badge" data-bs-container="body" data-bs-toggle="tooltip"
+                                          use:initTooltip
+                                          data-bs-placement="left" title="" data-bs-html="true"
+                                          data-bs-original-title="Access Control"
+                                    ><i class="fa-solid fa-lock"></i></span>
+                                        </div>
+                                    {/if}
+
+                                    {#if accessControl.roles}
+                                        <div class="path-toc-roles">
+                                            {#each accessControl.roles as role}
+                                             <span class="badge" data-parameter-highlight-name="role__{role}"
+                                                   onmouseover="highlightParameter(this, event, true)"
+                                                   onmouseout="deHighlightParameter(this, event, true)"
+                                             >{role}</span>
+                                            {/each}
+                                        </div>
+                                    {/if}
+                                {/each}
+
+
+
                             </div>
                         </li>
                     {/each}
@@ -105,6 +157,19 @@
     /* FIXME does not wrap in chrome */
     .word-wrap:after {
         content: "\200b";
+    }
+
+    .path-toc-roles {
+        float: right;
+    }
+
+    .path-toc-roles span {
+        margin-left: 5px;
+    }
+
+    .path-toc-roles .badge {
+        background-color: #b46a02;
+        color: black;
     }
 
 </style>

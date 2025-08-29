@@ -1,5 +1,9 @@
 package net.oneandone.neberus.test.springwebmvc;
 
+import net.oneandone.neberus.annotation.ApiAccess;
+import net.oneandone.neberus.annotation.ApiAccessEntry;
+import net.oneandone.neberus.annotation.ApiAccessOption;
+import net.oneandone.neberus.annotation.ApiAllowedRoles;
 import net.oneandone.neberus.annotation.ApiAllowedValue;
 import net.oneandone.neberus.annotation.ApiCommonResponse;
 import net.oneandone.neberus.annotation.ApiCurl;
@@ -17,9 +21,21 @@ import net.oneandone.neberus.annotation.ApiParameter;
 import net.oneandone.neberus.annotation.ApiRequestEntity;
 import net.oneandone.neberus.annotation.ApiRequired;
 import net.oneandone.neberus.annotation.ApiResponse;
-import net.oneandone.neberus.annotation.ApiAllowedRoles;
+import net.oneandone.neberus.annotation.ApiRoleDescription;
+import net.oneandone.neberus.annotation.ApiSecurityApiKey;
+import net.oneandone.neberus.annotation.ApiSecurityBasic;
+import net.oneandone.neberus.annotation.ApiSecurityBearer;
+import net.oneandone.neberus.annotation.ApiSecurityCustom;
+import net.oneandone.neberus.annotation.ApiSecurityCustomAttribute;
+import net.oneandone.neberus.annotation.ApiSecurityMutualTLS;
+import net.oneandone.neberus.annotation.ApiSecurityOAuth2;
+import net.oneandone.neberus.annotation.ApiSecurityOpenId;
+import net.oneandone.neberus.annotation.ApiSecurityRoles;
+import net.oneandone.neberus.annotation.ApiSecuritySchemes;
 import net.oneandone.neberus.annotation.ApiType;
 import net.oneandone.neberus.model.ApiStatus;
+import net.oneandone.neberus.model.SecurityIn;
+import net.oneandone.neberus.model.SecurityScheme;
 import net.oneandone.neberus.test.request.SomeChildFieldDto;
 import net.oneandone.neberus.test.request.SomeCtorAndGetterDto;
 import net.oneandone.neberus.test.request.SomeCtorDto;
@@ -55,13 +71,47 @@ import javax.validation.constraints.Max;
 @ApiHeaderDefinition(name = "header2", description = "description2")
 @ApiHeaderDefinition(name = "Predefined", description = "one description to rule them all")
 @ApiCommonResponse(status = ApiStatus.INTERNAL_SERVER_ERROR, description = "internal server error defined on class")
+@ApiSecuritySchemes(
+        description = "request access [http://localhost/here](here)",
+        basic = @ApiSecurityBasic(title = "custom basic", description = "basic description"),
+        oAuth2 = @ApiSecurityOAuth2(title = "custom oauth", description = "oauth description"),
+        openId = @ApiSecurityOpenId(title = "custom openId", description = "openId description", openIdConnectUrl = "https://custom.invalid"),
+        bearer = @ApiSecurityBearer(title = "custom bearer", description = "bearer description"),
+        apiKey = @ApiSecurityApiKey(title = "custom apiKey", description = "apiKey description", in = SecurityIn.HEADER, name = "API-KEY"),
+        mutualTLS = @ApiSecurityMutualTLS(title = "custom mtls", description = "mtls description"),
+        custom = {
+                @ApiSecurityCustom(type = "custom-auth", in = SecurityIn.HEADER, name = "x-custom-auth",
+                        title = "custom authentication", description = "custom description",
+                        scheme = "custom scheme", attributes = {
+                        @ApiSecurityCustomAttribute(name = "attr1", value = "value1"),
+                        @ApiSecurityCustomAttribute(name = "attr2", value = "value2")
+                }),
+                @ApiSecurityCustom(type = "custom-2-auth", in = SecurityIn.HEADER, name = "x-custom-2-auth",
+                        title = "custom-2 authentication", description = "custom-2 description",
+                        scheme = "custom-2 scheme")
+        },
+        roles = @ApiSecurityRoles(description = "spring security roles",
+                roles = {
+                        @ApiRoleDescription(name = "ROLE_OTHER", description = "other role"),
+                        @ApiRoleDescription(name = "ROLE_1", description = "first role")
+                }))
+@ApiAccess({
+        @ApiAccessOption(title = "mTLS + roles", entries = {
+                @ApiAccessEntry(type = SecurityScheme.MUTUAL_TLS),
+                @ApiAccessEntry(type = SecurityScheme.ROLES) // values are taken from each method
+        }),
+        @ApiAccessOption(title = "mTLS + oauth", entries = {
+                @ApiAccessEntry(type = SecurityScheme.MUTUAL_TLS),
+                @ApiAccessEntry(type = SecurityScheme.OAUTH2)
+        }),
+})
 public class RestService {
 
     /**
      * ApiDescription of this awesomely awesome method defined as javadoc!
      *
-     * @deprecated use this one {@link #justYetAnotherGetMethod(String, String, String, String, SomeFieldDto, SomeCtorDto, SomeChildFieldDto)}
-     * or that one {@link #justYetAnotherGetMethod(String, String, String, String, SomeFieldDto, SomeCtorDto, SomeChildFieldDto)}
+     * @deprecated use this one {@link #justYetAnotherGetMethod(String, String, String, String, String, SomeFieldDto, SomeCtorDto, SomeChildFieldDto)}
+     * or that one {@link #justYetAnotherGetMethod(String, String, String, String, String, SomeFieldDto, SomeCtorDto, SomeChildFieldDto)}
      * or even the one from the other resource {@link RestServiceWithInterfaceDoc#getMethod(String, String, String)}
      */
     @RequestMapping(method = RequestMethod.GET,
@@ -125,6 +175,21 @@ public class RestService {
     })
     @ApiParameter(name = "headerParam", description = "custom description <a href='index.html'>here</a>", type = ApiParameter.Type.HEADER)
     @ApiAllowedRoles("ROLE_ANOTHER_GET")
+    @ApiAccess({
+            @ApiAccessOption(title = "option #1", description = "mTLS + roles", entries = {
+                    @ApiAccessEntry(type = SecurityScheme.MUTUAL_TLS),
+                    @ApiAccessEntry(type = SecurityScheme.ROLES, values = { "ROLE_1", "ROLE_2", "ROLE_3" }),
+                    @ApiAccessEntry(type = SecurityScheme.CUSTOM, customType = "custom-auth"),
+                    @ApiAccessEntry(type = SecurityScheme.BASIC),
+            }),
+            @ApiAccessOption(title = "option #2", entries = {
+                    @ApiAccessEntry(type = SecurityScheme.MUTUAL_TLS),
+                    @ApiAccessEntry(type = SecurityScheme.OAUTH2)
+            }),
+            @ApiAccessOption(title = "option #3", deprecated = true, entries = {
+                    @ApiAccessEntry(type = SecurityScheme.API_KEY)
+            }),
+    })
     public void justYetAnotherGetMethod(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String header,
                                         @ApiRequired @RequestHeader(value = "requiredOptionalHeader", required = false) String requiredOptionalHeader,
                                         @PathVariable("pathParam") @ApiAllowedValue("the expected default value") String pathParam,
@@ -175,6 +240,20 @@ public class RestService {
     @ApiResponse(status = ApiStatus.OK, description = "success")
     @ApiCurl
     @Secured({ "ROLE_AGAIN_ANOTHER_GET", "ROLE_OTHER" })
+    @ApiAccess({
+            @ApiAccessOption(title = "mTLS + roles", entries = {
+                    @ApiAccessEntry(type = SecurityScheme.MUTUAL_TLS),
+                    @ApiAccessEntry(type = SecurityScheme.ROLES, values = { "ROLE_1" })
+            }),
+            @ApiAccessOption(title = "mTLS + oauth", entries = {
+                    @ApiAccessEntry(type = SecurityScheme.MUTUAL_TLS),
+                    @ApiAccessEntry(type = SecurityScheme.OAUTH2)
+            }),
+            @ApiAccessOption(title = "custom", entries = {
+                    @ApiAccessEntry(type = SecurityScheme.CUSTOM, customType = "custom-auth"),
+                    @ApiAccessEntry(type = SecurityScheme.API_KEY)
+            }),
+    })
     public SomeFieldDto againAnotherGetMethod(@RequestBody SomeGetterDto dto) {
         return null;
     }
@@ -184,6 +263,7 @@ public class RestService {
                    name = "The first awesome delete method")
     @ApiResponse(status = ApiStatus.OK, description = "success")
     @ApiCurl
+    @Secured({ "ROLE_DELETE" })
     public void deleteMethod() {
     }
 
@@ -196,6 +276,7 @@ public class RestService {
     @ApiCurl
     @ApiParameter(name = "Authorization", type = ApiParameter.Type.HEADER, description = "the authorization header", optional = true)
     @ApiParameter(name = "header1", type = ApiParameter.Type.HEADER, allowedValues = @ApiAllowedValue("that allowed value"))
+    @ApiAccess(@ApiAccessOption(title = "mTLS", entries = @ApiAccessEntry(type = SecurityScheme.MUTUAL_TLS)))
     public ResponseEntity<?> getEntityMethod(@RequestHeader HttpHeaders ignored) {
         return null;
     }

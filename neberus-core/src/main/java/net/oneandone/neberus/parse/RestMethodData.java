@@ -2,16 +2,15 @@ package net.oneandone.neberus.parse;
 
 import net.oneandone.neberus.model.ApiStatus;
 import net.oneandone.neberus.model.CookieSameSite;
+import net.oneandone.neberus.model.SecurityScheme;
 
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static net.oneandone.neberus.parse.RestMethodData.ParameterType.BODY;
@@ -29,6 +28,8 @@ public class RestMethodData {
     public List<ParameterInfo> responseValues;
 
     public List<ResponseData> responseData;
+
+    public AccessData accessData;
 
     public RestMethodData(String httpMethod) {
         methodData = new MethodData(httpMethod);
@@ -54,7 +55,6 @@ public class RestMethodData {
         public boolean deprecated = false;
         public String deprecatedDescription;
         public List<ExecutableElement> links = new ArrayList<>();
-        public Set<String> allowedRoles = new HashSet<>();
 
         public MethodData(String httpMethod) {
             this.httpMethod = httpMethod;
@@ -63,18 +63,17 @@ public class RestMethodData {
         @Override
         public String toString() {
             return "MethodData{" +
-                   "methodDoc=" + methodDoc +
-                   ", httpMethod='" + httpMethod + '\'' +
-                   ", path='" + path + '\'' +
-                   ", label='" + label + '\'' +
-                   ", description='" + description + '\'' +
-                   ", curl='" + curl + '\'' +
-                   ", printCurl=" + printCurl +
-                   ", deprecated=" + deprecated +
-                   ", deprecatedDescription='" + deprecatedDescription + '\'' +
-                   ", links=" + links +
-                   ", allowedRoles=" + allowedRoles +
-                   '}';
+                    "methodDoc=" + methodDoc +
+                    ", httpMethod='" + httpMethod + '\'' +
+                    ", path='" + path + '\'' +
+                    ", label='" + label + '\'' +
+                    ", description='" + description + '\'' +
+                    ", curl='" + curl + '\'' +
+                    ", printCurl=" + printCurl +
+                    ", deprecated=" + deprecated +
+                    ", deprecatedDescription='" + deprecatedDescription + '\'' +
+                    ", links=" + links +
+                    '}';
         }
     }
 
@@ -261,12 +260,12 @@ public class RestMethodData {
         @Override
         public String toString() {
             return "ResponseData{" +
-                   "status=" + status +
-                   ", description='" + description + '\'' +
-                   ", headers=" + headers +
-                   ", cookies=" + cookies +
-                   ", entities=" + entities +
-                   '}';
+                    "status=" + status +
+                    ", description='" + description + '\'' +
+                    ", headers=" + headers +
+                    ", cookies=" + cookies +
+                    ", entities=" + entities +
+                    '}';
         }
 
     }
@@ -359,21 +358,66 @@ public class RestMethodData {
         @Override
         public String toString() {
             return "CookieInfo{" +
-                   "name='" + name + '\'' +
-                   ", description='" + description + '\'' +
-                   ", allowedValues=" + allowedValues +
-                   ", required=" + required +
-                   ", sameSite='" + sameSite + '\'' +
-                   ", domain='" + domain + '\'' +
-                   ", path='" + path + '\'' +
-                   ", maxAge='" + maxAge + '\'' +
-                   ", secure=" + secure +
-                   ", httpOnly=" + httpOnly +
-                   ", deprecated=" + deprecated +
-                   ", deprecatedDescription='" + deprecatedDescription + '\'' +
-                   '}';
+                    "name='" + name + '\'' +
+                    ", description='" + description + '\'' +
+                    ", allowedValues=" + allowedValues +
+                    ", required=" + required +
+                    ", sameSite='" + sameSite + '\'' +
+                    ", domain='" + domain + '\'' +
+                    ", path='" + path + '\'' +
+                    ", maxAge='" + maxAge + '\'' +
+                    ", secure=" + secure +
+                    ", httpOnly=" + httpOnly +
+                    ", deprecated=" + deprecated +
+                    ", deprecatedDescription='" + deprecatedDescription + '\'' +
+                    '}';
         }
 
+    }
+
+    public record AccessData(
+            List<SecurityOption> options
+    ) {
+
+        public AccessData deepCopy() {
+            ArrayList<SecurityOption> copiedOptions = null;
+
+            if (options != null) {
+                copiedOptions = new ArrayList<>();
+                for (SecurityOption option : options) {
+                    ArrayList<SecurityEntry> entries = option.entries == null ? null : new ArrayList<>(option.entries.stream()
+                            .map(entry -> {
+                                List<String> copiedValues = entry.values == null ? null : new ArrayList<>(entry.values);
+                                return new SecurityEntry(entry.securityScheme, entry.type, copiedValues);
+                            })
+                            .toList());
+
+                    copiedOptions.add(new SecurityOption(
+                            option.title,
+                            option.description,
+                            entries,
+                            option.deprecated
+                    ));
+                }
+            }
+
+            return new AccessData(copiedOptions);
+        }
+    }
+
+    public record SecurityOption(
+            String title,
+            String description,
+            List<SecurityEntry> entries,
+            boolean deprecated
+    ) {
+    }
+
+    public record SecurityEntry(
+            SecurityScheme securityScheme,
+            String type,
+            List<String> values
+    ) {
     }
 
     public static class AllowedValue {

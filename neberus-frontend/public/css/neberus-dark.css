@@ -34,7 +34,7 @@
     background-color: #3e444c;
 }
 
-.operation.deprecated {
+.operation.deprecated, .security-set.deprecated > .card-header {
     background: repeating-linear-gradient(
             -45deg,
             rgba(255, 255, 255, 0.05),
@@ -151,6 +151,10 @@ input[type='checkbox'] {
 
 .highlight, .highlight td {
     background-color: #333a54 !important;
+}
+
+.path-toc-roles .highlight.badge {
+    background-color: RGBA(255,193,7,1) !important;
 }
 
 pre.highlight {

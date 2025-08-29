@@ -4,6 +4,7 @@ import net.oneandone.neberus.NeberusModule;
 import net.oneandone.neberus.Options;
 import net.oneandone.neberus.parse.RestClassData;
 import net.oneandone.neberus.parse.RestUsecaseData;
+import net.oneandone.neberus.parse.SecurityData;
 import net.oneandone.neberus.shortcode.ShortCodeExpander;
 import org.apache.commons.lang3.StringUtils;
 
@@ -32,7 +33,8 @@ public abstract class DocPrinter extends NeberusPrinter {
     public abstract void printRestClassFile(RestClassData restClassData, List<RestClassData> allRestClasses,
                                             List<RestUsecaseData> restUsecases);
 
-    public abstract void printIndexFile(List<RestClassData> restClasses, List<RestUsecaseData> restUsecases, String packageDoc);
+    public abstract void printIndexFile(List<RestClassData> restClasses, List<RestUsecaseData> restUsecases,
+            SecurityData securityData, String packageDoc);
 
 
     protected String concat(String... s) {

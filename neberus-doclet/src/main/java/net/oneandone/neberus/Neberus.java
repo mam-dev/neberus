@@ -4,6 +4,7 @@ import jdk.javadoc.doclet.Doclet;
 import jdk.javadoc.doclet.DocletEnvironment;
 import jdk.javadoc.doclet.Reporter;
 import net.oneandone.neberus.annotation.ApiDocumentation;
+import net.oneandone.neberus.annotation.ApiSecuritySchemes;
 import net.oneandone.neberus.annotation.ApiUsecase;
 import net.oneandone.neberus.annotation.ApiUsecases;
 import net.oneandone.neberus.parse.ClassParser;
@@ -14,6 +15,8 @@ import net.oneandone.neberus.parse.JavaxWsRsMethodParser;
 import net.oneandone.neberus.parse.RestClassData;
 import net.oneandone.neberus.parse.RestMethodData;
 import net.oneandone.neberus.parse.RestUsecaseData;
+import net.oneandone.neberus.parse.SecurityData;
+import net.oneandone.neberus.parse.SecuritySchemesParser;
 import net.oneandone.neberus.parse.SpringMvcClassParser;
 import net.oneandone.neberus.parse.SpringMvcMethodParser;
 import net.oneandone.neberus.parse.UsecaseParser;
@@ -30,7 +33,6 @@ import javax.lang.model.element.TypeElement;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 import javax.ws.rs.Path;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -51,8 +53,10 @@ import static net.oneandone.neberus.util.JavaDocUtils.getExecutableElements;
 import static net.oneandone.neberus.util.JavaDocUtils.getPackageName;
 import static net.oneandone.neberus.util.JavaDocUtils.getTypeElements;
 import static net.oneandone.neberus.util.JavaDocUtils.hasAnnotation;
+import static net.oneandone.neberus.util.JavaDocUtils.hasDirectAnnotation;
 
 //FIXME scroll to name anchor on index page broken
+//FEATURE ordering methods
 public class Neberus implements Doclet {
 
     private final Options options = new Options();
@@ -70,11 +74,13 @@ public class Neberus implements Doclet {
         ClassParser jakartaWsRsParser = new JakartaWsRsClassParser(new JakartaWsRsMethodParser(options));
         ClassParser springMvcParser = new SpringMvcClassParser(new SpringMvcMethodParser(options));
         UsecaseParser usecaseParser = new UsecaseParser(options);
+        SecuritySchemesParser securitySchemesParser = new SecuritySchemesParser(options);
 
         List<TypeElement> typeElements = getTypeElements(environment);
 
         List<RestClassData> restClasses = new ArrayList<>();
         List<RestUsecaseData> restUsecases = new ArrayList<>();
+        SecurityData securityData = new SecurityData();
 
         String packageDoc = null;
 
@@ -82,6 +88,12 @@ public class Neberus implements Doclet {
                 .filter(typeElement -> options.scanPackages.stream()
                         .anyMatch(pack -> getPackageName(typeElement, environment).startsWith(pack)))
                 .toList();
+
+        for (TypeElement typeElement : filteredClasses) {
+            if (hasDirectAnnotation(typeElement, ApiSecuritySchemes.class)) {
+                securitySchemesParser.parse(typeElement, securityData);
+            }
+        }
 
 
         for (TypeElement typeElement : filteredClasses) {
@@ -105,11 +117,11 @@ public class Neberus implements Doclet {
                 RestClassData restClassData;
 
                 if (usesJavaxWsRs(typeElement, options)) {
-                    restClassData = javaxWsRsParser.parse(typeElement);
+                    restClassData = javaxWsRsParser.parse(typeElement, securityData);
                 } else if (usesJakartaWsRs(typeElement, options)) {
-                    restClassData = jakartaWsRsParser.parse(typeElement);
+                    restClassData = jakartaWsRsParser.parse(typeElement, securityData);
                 } else {
-                    restClassData = springMvcParser.parse(typeElement);
+                    restClassData = springMvcParser.parse(typeElement, securityData);
                 }
 
                 restClassData.validate(options.ignoreErrors);
@@ -135,7 +147,7 @@ public class Neberus implements Doclet {
 
         modules.forEach(NeberusModule::print);
 
-        docPrinter.printIndexFile(restClasses, restUsecases, packageDoc);
+        docPrinter.printIndexFile(restClasses, restUsecases, securityData, packageDoc);
 
         URL bootstrapUrl = Neberus.class.getResource("/generated");
         File dest = new File(options.outputDirectory + options.docBasePath);
@@ -294,7 +306,7 @@ public class Neberus implements Doclet {
                     }
                 },
                 new DocletOption("--scanSecurityAnnotations", false, "Enable automatic parsing of security annotations "
-                                                                     + "for allowed roles like @Secured & @RolesAllowed.", null) {
+                        + "for allowed roles like @Secured & @RolesAllowed.", null) {
                     @Override
                     public boolean process(String option, List<String> arguments) {
                         options.scanSecurityAnnotations = true;

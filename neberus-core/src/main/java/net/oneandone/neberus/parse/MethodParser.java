@@ -11,6 +11,7 @@ import com.sun.source.doctree.SeeTree;
 import com.sun.source.doctree.StartElementTree;
 import com.sun.source.doctree.TextTree;
 import net.oneandone.neberus.Options;
+import net.oneandone.neberus.annotation.ApiAccess;
 import net.oneandone.neberus.annotation.ApiAllowedRoles;
 import net.oneandone.neberus.annotation.ApiAllowedValue;
 import net.oneandone.neberus.annotation.ApiAllowedValues;
@@ -30,6 +31,7 @@ import net.oneandone.neberus.annotation.ApiType;
 import net.oneandone.neberus.model.ApiStatus;
 import net.oneandone.neberus.model.CookieSameSite;
 import net.oneandone.neberus.model.FormParameters;
+import net.oneandone.neberus.model.SecurityScheme;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.lang.model.element.AnnotationMirror;
@@ -104,12 +106,13 @@ public abstract class MethodParser {
         this.options = options;
     }
 
-    public RestMethodData parseMethod(ExecutableElement method, String httpMethod) {
+    public RestMethodData parseMethod(RestClassData restClassData, ExecutableElement method, String httpMethod,
+            SecurityData securityData) {
         try {
             System.out.println(" - " + method);
             RestMethodData data = new RestMethodData(httpMethod);
 
-            addMethodData(method, data);
+            addMethodData(restClassData, method, data, securityData);
             addRequestData(method, data);
             addResponseData(method, data);
 
@@ -904,18 +907,19 @@ public abstract class MethodParser {
                     String simpleName = a.getAnnotationType().asElement().getSimpleName().toString();
 
                     return (packageName.equals("javax.validation") || packageName.equals("jakarta.validation"))
-                           && simpleName.equals("Constraint");
+                            && simpleName.equals("Constraint");
                 });
     }
 
-    protected void addMethodData(ExecutableElement method, RestMethodData data) {
+    protected void addMethodData(RestClassData restClassData, ExecutableElement method, RestMethodData data,
+            SecurityData securityData) {
         data.methodData.methodDoc = method;
         addPath(method, data);
         addLabel(method, data);
         addDescription(method, data);
         addCurl(method, data);
         addDeprecated(method, data);
-        addAllowedRoles(method, data);
+        addAccessOptions(restClassData, method, data, securityData);
     }
 
     protected abstract String getRootPath(TypeElement classDoc);
@@ -1220,25 +1224,199 @@ public abstract class MethodParser {
         return exampleList;
     }
 
-    protected void addAllowedRoles(ExecutableElement method, RestMethodData data) {
+    protected List<String> parseAllowedRoles(ExecutableElement method) {
 
         List<AnnotationValue> apiSecuredRoles = getAnnotationValue(method, ApiAllowedRoles.class, VALUE, options.environment);
 
+        var allowedRoles = new ArrayList<String>();
+
         if (apiSecuredRoles != null) {
-            data.methodData.allowedRoles.addAll(apiSecuredRoles.stream().map(annotationValue -> (String) annotationValue.getValue()).toList());
+            allowedRoles.addAll(apiSecuredRoles.stream().map(annotationValue -> (String) annotationValue.getValue()).toList());
         }
 
         if (options.scanSecurityAnnotations) {
             List<AnnotationValue> javaxRoles = getAnnotationValue(method, "javax.annotation.security.RolesAllowed", VALUE, options.environment);
             if (javaxRoles != null) {
-                data.methodData.allowedRoles.addAll(javaxRoles.stream().map(annotationValue -> (String) annotationValue.getValue()).toList());
+                allowedRoles.addAll(javaxRoles.stream().map(annotationValue -> (String) annotationValue.getValue()).toList());
             }
 
             List<AnnotationValue> jakartaRoles = getAnnotationValue(method, "jakarta.annotation.security.RolesAllowed", VALUE, options.environment);
             if (jakartaRoles != null) {
-                data.methodData.allowedRoles.addAll(jakartaRoles.stream().map(annotationValue -> (String) annotationValue.getValue()).toList());
+                allowedRoles.addAll(jakartaRoles.stream().map(annotationValue -> (String) annotationValue.getValue()).toList());
             }
         }
+
+        return allowedRoles;
+    }
+
+    protected void addAccessOptions(RestClassData restClassData, ExecutableElement method, RestMethodData data,
+            SecurityData securityData) {
+
+        List<? extends AnnotationMirror> singleResponse = getAnnotationDesc(method, ApiAccess.class, options.environment);
+        singleResponse.forEach(annotationDesc -> {
+            data.accessData = parseApiAccess(annotationDesc, securityData);
+
+        });
+
+        if (data.accessData == null) {
+            data.accessData = restClassData.accessData == null ? null : restClassData.accessData.deepCopy();
+        }
+
+        // add allowed roles
+        List<String> allowedRoles = parseAllowedRoles(method);
+
+        if (allowedRoles != null && !allowedRoles.isEmpty()) {
+            if (data.accessData == null) {
+                RestMethodData.SecurityEntry securityEntry = new RestMethodData.SecurityEntry(
+                        SecurityScheme.ROLES, SecurityScheme.ROLES.typeName, allowedRoles);
+
+                data.accessData = new RestMethodData.AccessData(
+                        List.of(new RestMethodData.SecurityOption("Roles", null,
+                                List.of(securityEntry), false)));
+
+                // create scheme if missing
+                if (securityData.securitySchemes == null || securityData.securitySchemes.roles == null) {
+                    securityData.securitySchemes = new SecurityData.SecuritySchemes();
+                    securityData.securitySchemes.roles = new SecurityData.SecurityRoles(List.of(), null, null);
+                }
+            } else {
+                // enhance ROLE usages
+                data.accessData.options().forEach(set -> {
+                    set.entries().stream().filter(item -> item.type().equals(SecurityScheme.ROLES.typeName))
+                            .forEach(roleItem -> {
+                                if (roleItem.values().isEmpty()) {
+                                    roleItem.values().addAll(allowedRoles);
+                                }
+                            });
+                });
+            }
+
+        }
+
+    }
+
+    public RestMethodData.AccessData parseApiAccess(AnnotationMirror annotationDesc, SecurityData securityData) {
+
+        if (securityData == null || securityData.securitySchemes == null) {
+            System.err.println("@ApiSecuritySchemes should be defined for the application when using @ApiAccess.");
+            if (!options.ignoreErrors) {
+                throw new IllegalStateException();
+            }
+        }
+
+        // options
+        List<AnnotationValue> optionsList = extractValue(annotationDesc, VALUE);
+
+        if (optionsList == null) {
+            return new RestMethodData.AccessData(new ArrayList<>());
+        }
+
+        List<RestMethodData.SecurityOption> securityOptions = optionsList.stream().map(set -> {
+            AnnotationMirror securitySet = (AnnotationMirror) set.getValue();
+            String title = extractValue(securitySet, TITLE);
+            String description = extractValue(securitySet, DESCRIPTION);
+            Boolean deprecated = extractValue(securitySet, "deprecated");
+            List<AnnotationValue> entries = extractValue(securitySet, "entries");
+            var parsedItems = parseSecurityEntries(entries);
+
+            return new RestMethodData.SecurityOption(title, description, parsedItems, Boolean.TRUE.equals(deprecated));
+        }).toList();
+
+        if (securityData != null && securityData.securitySchemes != null) {
+            validateSecuritySchemes(securityOptions, securityData.securitySchemes);
+        }
+
+        return new RestMethodData.AccessData(securityOptions);
+    }
+
+    private void validateSecuritySchemes(List<RestMethodData.SecurityOption> securityOptions,
+            SecurityData.SecuritySchemes securitySchemes) {
+
+        // validate all used types are defined as scheme
+        securityOptions.forEach(securityOption -> {
+            securityOption.entries().forEach(entry -> {
+
+                String missingScheme = null;
+
+                switch (entry.securityScheme()) {
+                    case BASIC -> {
+                        if (securitySchemes.basic == null) {
+                            missingScheme = "basic";
+                        }
+                    }
+                    case BEARER -> {
+                        if (securitySchemes.bearer == null) {
+                            missingScheme = "bearer";
+                        }
+                    }
+                    case API_KEY -> {
+                        if (securitySchemes.apiKey == null) {
+                            missingScheme = "apiKey";
+                        }
+                    }
+                    case OPEN_ID -> {
+                        if (securitySchemes.openId == null) {
+                            missingScheme = "openId";
+                        }
+                    }
+                    case OAUTH2 -> {
+                        if (securitySchemes.oAuth2 == null) {
+                            missingScheme = "oAuth2";
+                        }
+                    }
+                    case MUTUAL_TLS -> {
+                        if (securitySchemes.mutualTLS == null) {
+                            missingScheme = "mutualTLS";
+                        }
+                    }
+                    case ROLES -> {
+                        if (securitySchemes.roles == null) {
+                            missingScheme = "roles";
+                        }
+                    }
+                    case CUSTOM -> {
+                        if (securitySchemes.custom == null || securitySchemes.custom.stream()
+                                .noneMatch(c -> c.type().equals(entry.type()))) {
+                            missingScheme = "CUSTOM: " + entry.type();
+                        }
+                    }
+                }
+                if (missingScheme != null) {
+                    System.err.println("@ApiSecuritySchemes missing definition for '" + missingScheme + "'!");
+                    if (!options.ignoreErrors) {
+                        throw new IllegalStateException();
+                    }
+                }
+            });
+        });
+    }
+
+    private static List<RestMethodData.SecurityEntry> parseSecurityEntries(List<AnnotationValue> entries) {
+
+        if (entries != null) {
+
+            return entries.stream().map(item -> {
+                AnnotationMirror securityItem = (AnnotationMirror) item.getValue();
+
+                VariableElement rawType = extractValue(securityItem, "type");
+                SecurityScheme scheme = SecurityScheme.valueOf(rawType.getSimpleName().toString());
+
+                String customType = extractValue(securityItem, "customType");
+
+                String itemType = SecurityScheme.CUSTOM == scheme ? customType : scheme.typeName;
+
+                List<AnnotationValue> values = extractValue(securityItem, "values");
+
+                var itemValues = values == null
+                                 ? new ArrayList<String>()
+                                 : values.stream().map(annotationValue -> (String) annotationValue.getValue()).toList();
+
+                return new RestMethodData.SecurityEntry(scheme, itemType, itemValues);
+            }).toList();
+
+        }
+
+        return null;
     }
 
 }

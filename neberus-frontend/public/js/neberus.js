@@ -154,6 +154,20 @@ function selectUsecaseAndScrollTo(selected) {
     window.history.pushState({}, '', url);
 }
 
+function selectSchemeAndScrollTo(selected) {
+    const url = new URL(window.location);
+
+    if (selected !== '') {
+        url.searchParams.set('access-control', selected);
+        scrollToHeading('access-control-' + selected);
+    } else {
+        url.searchParams.delete('access-control');
+        scrollToHeading('access-control-container');
+    }
+
+    window.history.pushState({}, '', url);
+}
+
 function scrollToTop() {
     window.scrollTimeout = setTimeout(function () {
         jQuery('html, body').animate({
@@ -164,9 +178,11 @@ function scrollToTop() {
 
 window.referencedParamTimeout = [];
 
-function highlightParameter(elem, event) {
+function highlightParameter(elem, event, propagate) {
     // console.log(event);
-    event.stopPropagation();
+    if (!propagate) {
+        event.stopPropagation();
+    }
     let reference = jQuery(elem).data("parameter-highlight-name");
     jQuery('[data-parameter-highlight-name="' + reference + '"]').addClass("highlight");
 
@@ -188,8 +204,10 @@ function highlightParameter(elem, event) {
     }
 }
 
-function deHighlightParameter(elem, event) {
-    event.stopPropagation();
+function deHighlightParameter(elem, event, propagate) {
+    if (!propagate) {
+        event.stopPropagation();
+    }
     let reference = jQuery(elem).data("parameter-highlight-name");
     jQuery('[data-parameter-highlight-name="' + reference + '"]').removeClass("highlight");
 

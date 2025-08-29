@@ -317,6 +317,13 @@ public abstract class JavaDocUtils {
         return definedOnInterface || hasAnnotation(method.getAnnotationMirrors(), annotationClass);
     }
 
+    public static boolean hasDirectAnnotation(TypeElement clazz, Class annotationClass) {
+
+        List<? extends AnnotationMirror> allAnnotationMirrors = clazz.getAnnotationMirrors();
+
+        return hasAnnotation(allAnnotationMirrors, annotationClass);
+    }
+
     public static boolean hasAnnotation(TypeElement clazz, Class annotationClass, DocletEnvironment environment) {
 
         List<? extends AnnotationMirror> allAnnotationMirrors = collectAllAnnotationMirrors(clazz, environment);

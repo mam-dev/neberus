@@ -1,5 +1,6 @@
 package net.oneandone.neberus.parse;
 
+import net.oneandone.neberus.annotation.ApiAccess;
 import net.oneandone.neberus.annotation.ApiCommonResponse;
 import net.oneandone.neberus.annotation.ApiCommonResponses;
 import net.oneandone.neberus.annotation.ApiCookieDefinition;
@@ -16,7 +17,6 @@ import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,13 +41,14 @@ public abstract class ClassParser {
         this.methodParser = methodParser;
     }
 
-    public RestClassData parse(TypeElement classDoc) {
+    public RestClassData parse(TypeElement classDoc, SecurityData securityData) {
 
         RestClassData restClassData = new RestClassData();
 
         // class related stuff
         addLabel(classDoc, restClassData);
         addHeaders(classDoc, restClassData);
+        addAccessOptions(classDoc, restClassData, securityData);
         addCookies(classDoc, restClassData);
         addResponsesFromAnnotations(classDoc, restClassData);
         addDescription(classDoc, restClassData);
@@ -62,7 +63,7 @@ public abstract class ClassParser {
                 .toList();
 
         for (ExecutableElement method : methods) {
-            List<RestMethodData> parsedMethodDataList = parseMethods(method);
+            List<RestMethodData> parsedMethodDataList = parseMethods(restClassData, method, securityData);
             if (parsedMethodDataList != null) {
                 parsedMethodDataList.forEach(parsedMethodData -> {
                     parsedMethodData.containingClass = restClassData;
@@ -76,14 +77,16 @@ public abstract class ClassParser {
 
     protected abstract List<String> getHttpMethods(ExecutableElement method);
 
-    private List<RestMethodData> parseMethods(ExecutableElement method) {
+    private List<RestMethodData> parseMethods(RestClassData restClassData, ExecutableElement method, SecurityData securityData) {
         List<String> httpMethods = getHttpMethods(method);
 
         if (httpMethods == null || hasAnnotation(method, ApiIgnore.class, methodParser.options.environment)) {
             return Collections.emptyList();
         }
 
-        return httpMethods.stream().map(httpMethod -> methodParser.parseMethod(method, httpMethod)).collect(Collectors.toList());
+        return httpMethods.stream()
+                .map(httpMethod -> methodParser.parseMethod(restClassData, method, httpMethod, securityData))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -136,6 +139,15 @@ public abstract class ClassParser {
 
         restClassData.headerDefinitions.put(name, headerInfo);
     }
+
+    protected void addAccessOptions(TypeElement classDoc, RestClassData restClassData, SecurityData securityData) {
+
+        List<? extends AnnotationMirror> singleResponse = getAnnotationDesc(classDoc, ApiAccess.class, methodParser.options.environment);
+        singleResponse.forEach(annotationDesc -> {
+            restClassData.accessData = methodParser.parseApiAccess(annotationDesc, securityData);
+        });
+    }
+
 
     protected void addCookies(TypeElement classDoc, RestClassData restClassData) {
         List<AnnotationValue> cookies = getAnnotationValue(classDoc, ApiCookieDefinitions.class, "value", methodParser.options.environment);

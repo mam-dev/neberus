@@ -42,6 +42,8 @@ public class RestClassData {
      */
     public Map<String, RestMethodData.CookieInfo> cookieDefinitions;
 
+    public RestMethodData.AccessData accessData;
+
     /**
      * Class scope defined responses that will be added to every method in the whole class.
      */

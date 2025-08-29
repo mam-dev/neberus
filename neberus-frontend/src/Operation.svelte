@@ -1,6 +1,7 @@
 <script>
     import OperationRequest from "./OperationRequest.svelte";
     import OperationResponse from "./OperationResponse.svelte";
+    import OperationSecurity from "./OperationSecurity.svelte";
 
     export let operation;
     export let path;
@@ -110,6 +111,7 @@
         </div>
     </div>
 
+    <OperationSecurity operation={operation} openApi={openApi}/>
 
     <div id="{operation.operationId}-details">
         {#if operation.description}

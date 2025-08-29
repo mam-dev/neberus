@@ -459,3 +459,7 @@ tr.collapse.show-override {
 .parameters tr > td:first-of-type {
     white-space: nowrap;
 }
+
+.html-content p, .html-content .paragraph p {
+    margin: 0 !important;
+}
