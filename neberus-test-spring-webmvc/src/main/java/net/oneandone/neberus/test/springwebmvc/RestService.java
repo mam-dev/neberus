@@ -285,7 +285,8 @@ public class RestService {
                  consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
                  produces = MediaType.APPLICATION_JSON_VALUE)
     @ApiCurl
-    @ApiRequestEntity(entityClass = GenericForm.class)
+    @ApiRequestEntity(contentType = MediaType.APPLICATION_FORM_URLENCODED_VALUE, entityClass = GenericForm.class)
+    @ApiRequestEntity(contentType = MediaType.APPLICATION_JSON_VALUE, entityClass = SomeFieldDto.class)
     public ResponseEntity<?> postGenericFormMethod(@RequestBody final MultiValueMap<String, String> parameters) {
         return null;
     }

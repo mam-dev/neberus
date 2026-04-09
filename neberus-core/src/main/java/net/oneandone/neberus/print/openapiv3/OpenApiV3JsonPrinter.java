@@ -24,6 +24,7 @@ import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme.In;
 import io.swagger.v3.oas.models.servers.Server;
+import java.util.LinkedHashMap;
 import net.oneandone.neberus.NeberusModule;
 import net.oneandone.neberus.Options;
 import net.oneandone.neberus.model.CookieSameSite;
@@ -824,11 +825,25 @@ public class OpenApiV3JsonPrinter extends DocPrinter {
     private Map<String, RestMethodData.Entity> getMediaTypesWithEntity(RestMethodData.RequestData requestData,
             Optional<RestMethodData.Entity> fallbackBodyParam) {
 
-        if (requestData.mediaType == null || requestData.mediaType.isEmpty()) {
+        var allMediaTypes = new ArrayList<String>();
+
+        if (requestData.mediaType != null) {
+            allMediaTypes.addAll(requestData.mediaType);
+        }
+
+        requestData.entities.stream()
+                .filter(param -> StringUtils.isNotBlank(param.contentType))
+                .forEach(param -> {
+                    if (!allMediaTypes.contains(param.contentType)) {
+                        allMediaTypes.add(param.contentType);
+                    }
+                });
+
+        if (allMediaTypes.isEmpty()) {
             return Map.of();
         }
 
-        return requestData.mediaType
+        return allMediaTypes
                 .stream().map(mediaType -> {
                     Optional<RestMethodData.Entity> entityForMediaType = requestData.entities.stream()
                             .filter(param -> mediaType.equals(param.contentType))
@@ -840,7 +855,8 @@ public class OpenApiV3JsonPrinter extends DocPrinter {
                     return new AbstractMap.SimpleEntry<>(mediaType, entityForMediaType);
                 })
                 .filter(e -> e.getValue().isPresent())
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get()));
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get(),
+                        (a,b) -> a, LinkedHashMap::new));
     }
 
     private Schema toSchema(RestMethodData.ParameterInfo param, TypeMirror type, Map<String, String> parameterUsecaseValues,
